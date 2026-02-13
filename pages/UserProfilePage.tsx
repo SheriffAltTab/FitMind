@@ -1,15 +1,13 @@
 import React, { useState } from 'react'
-import { motion, AnimatePresence } from 'framer-motion'
+import { motion } from 'framer-motion'
 import {
   User,
-  Bell,
   Shield,
   LogOut,
   ChevronRight,
   Mail,
   Moon,
   Sun,
-  Globe,
   Download,
   Trash2,
   X,
@@ -18,18 +16,14 @@ import {
 import { useTheme } from '../components/ThemeContext'
 import { useAuth } from '../contexts/AuthContext'
 import { getAllUserData } from '../lib/storage'
-import type { NotificationPrefs } from '../lib/types'
-
 interface UserProfilePageProps {
   onLogout?: () => void
 }
 
-type ProfileTab = 'account' | 'preferences' | 'data'
 
 export function UserProfilePage({ onLogout }: UserProfilePageProps) {
   const { user, appData, updateUser, logout, deleteAccount } = useAuth()
   const { theme, toggleTheme } = useTheme()
-  const [activeSection, setActiveSection] = useState<ProfileTab | null>(null)
   const [editPersonal, setEditPersonal] = useState(false)
   const [editEmail, setEditEmail] = useState(false)
   const [editPassword, setEditPassword] = useState(false)
@@ -73,13 +67,6 @@ export function UserProfilePage({ onLogout }: UserProfilePageProps) {
       setPasswordForm({ current: '', new: '', confirm: '' })
       setEditPassword(false)
     }
-  }
-
-  const handleToggleNotification = (key: keyof NotificationPrefs) => {
-    if (!user) return
-    updateUser({
-      notifications: { ...user.notifications, [key]: !user.notifications[key] },
-    })
   }
 
   const handleThemeToggle = () => {
@@ -158,28 +145,17 @@ export function UserProfilePage({ onLogout }: UserProfilePageProps) {
         </div>
       </motion.div>
 
-      {/* Account */}
+      {/* Account — завжди видимий блок */}
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.1 }}
         className="bg-[var(--bg-card)] rounded-xl shadow-sm border border-[var(--border)] overflow-hidden"
       >
-        <button
-          onClick={() => setActiveSection(activeSection === 'account' ? null : 'account')}
-          className="w-full px-6 py-4 border-b border-[var(--border)] bg-[var(--bg-primary)] flex items-center justify-between"
-        >
+        <div className="px-6 py-4 border-b border-[var(--border)] bg-[var(--bg-primary)]">
           <h3 className="font-bold text-[var(--text-primary)]">Account</h3>
-          <ChevronRight className={`w-4 h-4 transition-transform ${activeSection === 'account' ? 'rotate-90' : ''}`} />
-        </button>
-        <AnimatePresence>
-          {activeSection === 'account' && (
-            <motion.div
-              initial={{ height: 0, opacity: 0 }}
-              animate={{ height: 'auto', opacity: 1 }}
-              exit={{ height: 0, opacity: 0 }}
-              className="divide-y divide-[var(--border)]"
-            >
+        </div>
+        <div className="divide-y divide-[var(--border)]">
               <div className="p-6">
                 <div className="flex items-center justify-between mb-4">
                   <div className="flex items-center gap-4">
@@ -351,163 +327,96 @@ export function UserProfilePage({ onLogout }: UserProfilePageProps) {
                   </div>
                 )}
               </div>
-            </motion.div>
-          )}
-        </AnimatePresence>
+        </div>
       </motion.div>
 
-      {/* Preferences */}
+      {/* Appearance — зміна теми, завжди видимий блок */}
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.2 }}
-        className="bg-[var(--bg-card)] rounded-xl shadow-sm border border-[var(--border)] overflow-hidden"
+        className="bg-[var(--bg-card)] rounded-xl shadow-sm border border-[var(--border)] p-6"
       >
-        <button
-          onClick={() => setActiveSection(activeSection === 'preferences' ? null : 'preferences')}
-          className="w-full px-6 py-4 border-b border-[var(--border)] bg-[var(--bg-primary)] flex items-center justify-between"
-        >
-          <h3 className="font-bold text-[var(--text-primary)]">Preferences</h3>
-          <ChevronRight className={`w-4 h-4 transition-transform ${activeSection === 'preferences' ? 'rotate-90' : ''}`} />
-        </button>
-        <AnimatePresence>
-          {activeSection === 'preferences' && (
-            <motion.div
-              initial={{ height: 0, opacity: 0 }}
-              animate={{ height: 'auto', opacity: 1 }}
-              exit={{ height: 0, opacity: 0 }}
-              className="divide-y divide-[var(--border)]"
-            >
-              {[
-                { key: 'workouts' as const, label: 'Workout reminders', value: user.notifications.workouts },
-                { key: 'mindfulness' as const, label: 'Mindfulness reminders', value: user.notifications.mindfulness },
-                { key: 'nutrition' as const, label: 'Nutrition reminders', value: user.notifications.nutrition },
-                { key: 'reminders' as const, label: 'General reminders', value: user.notifications.reminders },
-              ].map((item) => (
-                <div key={item.key} className="px-6 py-4 flex items-center justify-between">
-                  <div className="flex items-center gap-4">
-                    <div className="w-10 h-10 rounded-full bg-[var(--bg-primary)] flex items-center justify-center">
-                      <Bell className="w-5 h-5 text-[var(--text-secondary)]" />
-                    </div>
-                    <span className="font-medium text-[var(--text-primary)]">{item.label}</span>
-                  </div>
-                  <button
-                    onClick={() => handleToggleNotification(item.key)}
-                    className={`w-10 h-6 rounded-full p-1 transition-colors ${item.value ? 'bg-[var(--accent)]' : 'bg-slate-200 dark:bg-slate-600'}`}
-                  >
-                    <div
-                      className={`w-4 h-4 rounded-full bg-white shadow-sm transition-transform ${item.value ? 'translate-x-4' : 'translate-x-0'}`}
-                    />
-                  </button>
-                </div>
-              ))}
-              <div className="px-6 py-4 flex items-center justify-between">
-                <div className="flex items-center gap-4">
-                  <div className="w-10 h-10 rounded-full bg-[var(--bg-primary)] flex items-center justify-center">
-                    {theme === 'light' ? <Moon className="w-5 h-5 text-[var(--text-secondary)]" /> : <Sun className="w-5 h-5 text-[var(--text-secondary)]" />}
-                  </div>
-                  <div>
-                    <p className="font-medium text-[var(--text-primary)]">Appearance</p>
-                    <p className="text-xs text-[var(--text-secondary)]">{theme === 'light' ? 'Light' : 'Dark'}</p>
-                  </div>
-                </div>
-                <button
-                  onClick={handleThemeToggle}
-                  className={`w-10 h-6 rounded-full p-1 transition-colors ${theme === 'dark' ? 'bg-[var(--accent)]' : 'bg-slate-200'}`}
-                >
-                  <div
-                    className={`w-4 h-4 rounded-full bg-white shadow-sm transition-transform ${theme === 'dark' ? 'translate-x-4' : 'translate-x-0'}`}
-                  />
-                </button>
-              </div>
-              <div className="px-6 py-4 flex items-center justify-between opacity-60">
-                <div className="flex items-center gap-4">
-                  <div className="w-10 h-10 rounded-full bg-[var(--bg-primary)] flex items-center justify-center">
-                    <Globe className="w-5 h-5 text-[var(--text-secondary)]" />
-                  </div>
-                  <div>
-                    <p className="font-medium text-[var(--text-primary)]">Language</p>
-                    <p className="text-xs text-[var(--text-secondary)]">English (Unavailable)</p>
-                  </div>
-                </div>
-              </div>
-            </motion.div>
-          )}
-        </AnimatePresence>
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-4">
+            <div className="w-10 h-10 rounded-full bg-[var(--bg-primary)] flex items-center justify-center">
+              {theme === 'light' ? <Moon className="w-5 h-5 text-[var(--text-secondary)]" /> : <Sun className="w-5 h-5 text-[var(--text-secondary)]" />}
+            </div>
+            <div>
+              <p className="font-medium text-[var(--text-primary)]">Appearance</p>
+              <p className="text-xs text-[var(--text-secondary)]">{theme === 'light' ? 'Light' : 'Dark'}</p>
+            </div>
+          </div>
+          <button
+            onClick={handleThemeToggle}
+            className={`w-10 h-6 rounded-full p-1 transition-colors ${theme === 'dark' ? 'bg-[var(--accent)]' : 'bg-slate-200 dark:bg-slate-600'}`}
+          >
+            <div
+              className={`w-4 h-4 rounded-full bg-white shadow-sm transition-transform ${theme === 'dark' ? 'translate-x-4' : 'translate-x-0'}`}
+            />
+          </button>
+        </div>
       </motion.div>
 
-      {/* Data & Privacy */}
+      {/* Data & Privacy — завжди видимий блок */}
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.3 }}
         className="bg-[var(--bg-card)] rounded-xl shadow-sm border border-[var(--border)] overflow-hidden"
       >
-        <button
-          onClick={() => setActiveSection(activeSection === 'data' ? null : 'data')}
-          className="w-full px-6 py-4 border-b border-[var(--border)] bg-[var(--bg-primary)] flex items-center justify-between"
-        >
+        <div className="px-6 py-4 border-b border-[var(--border)] bg-[var(--bg-primary)]">
           <h3 className="font-bold text-[var(--text-primary)]">Data & Privacy</h3>
-          <ChevronRight className={`w-4 h-4 transition-transform ${activeSection === 'data' ? 'rotate-90' : ''}`} />
-        </button>
-        <AnimatePresence>
-          {activeSection === 'data' && (
-            <motion.div
-              initial={{ height: 0, opacity: 0 }}
-              animate={{ height: 'auto', opacity: 1 }}
-              exit={{ height: 0, opacity: 0 }}
-              className="divide-y divide-[var(--border)]"
-            >
-              <button
-                onClick={handleDownloadData}
-                className="w-full px-6 py-4 flex items-center gap-4 hover:bg-[var(--bg-primary)] transition-colors text-left"
-              >
-                <div className="w-10 h-10 rounded-full bg-[var(--bg-primary)] flex items-center justify-center text-blue-500">
-                  <Download className="w-5 h-5" />
-                </div>
-                <div className="flex-1">
-                  <p className="font-medium text-[var(--text-primary)]">Download My Data</p>
-                  <p className="text-xs text-[var(--text-secondary)]">Get a copy of all your tracked metrics</p>
-                </div>
-                <ChevronRight className="w-4 h-4 text-[var(--text-secondary)]" />
-              </button>
-              <div className="p-6">
-                <div className="flex items-center gap-4">
-                  <div className="w-10 h-10 rounded-full bg-red-100 dark:bg-red-900/20 flex items-center justify-center text-red-500">
-                    <Trash2 className="w-5 h-5" />
-                  </div>
-                  <div className="flex-1">
-                    <p className="font-medium text-[var(--text-primary)]">Delete Account</p>
-                    <p className="text-xs text-[var(--text-secondary)]">Permanently remove all data</p>
-                  </div>
-                  {!confirmDelete ? (
-                    <button
-                      onClick={() => setConfirmDelete(true)}
-                      className="px-4 py-2 rounded-lg border border-red-500 text-red-500 font-medium hover:bg-red-50 dark:hover:bg-red-900/20"
-                    >
-                      Delete
-                    </button>
-                  ) : (
-                    <div className="flex gap-2">
-                      <button
-                        onClick={handleDeleteAccount}
-                        className="px-4 py-2 rounded-lg bg-red-500 text-white font-medium hover:bg-red-600"
-                      >
-                        Confirm
-                      </button>
-                      <button
-                        onClick={() => setConfirmDelete(false)}
-                        className="px-4 py-2 rounded-lg border border-[var(--border)] text-[var(--text-primary)]"
-                      >
-                        Cancel
-                      </button>
-                    </div>
-                  )}
-                </div>
+        </div>
+        <div className="divide-y divide-[var(--border)]">
+          <button
+            onClick={handleDownloadData}
+            className="w-full px-6 py-4 flex items-center gap-4 hover:bg-[var(--bg-primary)] transition-colors text-left"
+          >
+            <div className="w-10 h-10 rounded-full bg-[var(--bg-primary)] flex items-center justify-center text-blue-500">
+              <Download className="w-5 h-5" />
+            </div>
+            <div className="flex-1 text-left">
+              <p className="font-medium text-[var(--text-primary)]">Download My Data</p>
+              <p className="text-xs text-[var(--text-secondary)]">Get a copy of all your tracked metrics</p>
+            </div>
+            <ChevronRight className="w-4 h-4 text-[var(--text-secondary)]" />
+          </button>
+          <div className="p-6">
+            <div className="flex items-center gap-4">
+              <div className="w-10 h-10 rounded-full bg-red-100 dark:bg-red-900/20 flex items-center justify-center text-red-500">
+                <Trash2 className="w-5 h-5" />
               </div>
-            </motion.div>
-          )}
-        </AnimatePresence>
+              <div className="flex-1">
+                <p className="font-medium text-[var(--text-primary)]">Delete Account</p>
+                <p className="text-xs text-[var(--text-secondary)]">Permanently remove all data</p>
+              </div>
+              {!confirmDelete ? (
+                <button
+                  onClick={() => setConfirmDelete(true)}
+                  className="px-4 py-2 rounded-lg border border-red-500 text-red-500 font-medium hover:bg-red-50 dark:hover:bg-red-900/20"
+                >
+                  Delete
+                </button>
+              ) : (
+                <div className="flex gap-2">
+                  <button
+                    onClick={handleDeleteAccount}
+                    className="px-4 py-2 rounded-lg bg-red-500 text-white font-medium hover:bg-red-600"
+                  >
+                    Confirm
+                  </button>
+                  <button
+                    onClick={() => setConfirmDelete(false)}
+                    className="px-4 py-2 rounded-lg border border-[var(--border)] text-[var(--text-primary)]"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
       </motion.div>
 
       <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.5 }} className="flex justify-center pt-8">

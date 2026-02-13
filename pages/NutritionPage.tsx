@@ -141,6 +141,8 @@ export function NutritionPage() {
                     ))}
                   </Pie>
                   <Tooltip
+                    wrapperStyle={{ zIndex: 10 }}
+                    contentStyle={{ zIndex: 10 }}
                     content={({ active, payload }) => {
                       if (!active || !payload?.length) return null
                       return (
@@ -157,7 +159,7 @@ export function NutritionPage() {
                   />
                 </PieChart>
               </ResponsiveContainer>
-              <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
+              <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none z-0">
                 <span className="text-2xl font-bold text-[var(--text-primary)]">{totalCalories}</span>
                 <span className="text-xs text-[var(--text-secondary)]">kcal</span>
               </div>
