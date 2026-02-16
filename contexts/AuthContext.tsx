@@ -1,6 +1,18 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react'
-import type { User, AppData, NotificationPrefs } from '../lib/types'
-import { getUsers, saveUsers, getCurrentUserId, setCurrentUserId, getAppData, saveAppData, deleteUser, getToday } from '../lib/storage'
+import type { User, AppData } from '../lib/types'
+import { getToday } from '../lib/storage'
+import {
+  getToken,
+  setToken,
+  clearToken,
+  apiLogin,
+  apiSignup,
+  apiGetMe,
+  apiGetAppData,
+  apiPutAppData,
+  apiPatchUser,
+  apiDeleteAccount,
+} from '../lib/api'
 import {
   RANK_THRESHOLD,
   RANK_PENALTY_PER_MISSED_DAY,
@@ -11,17 +23,15 @@ import {
   RANK_NAMES,
 } from '../lib/types'
 
-function generateId(): string {
-  return Date.now().toString(36) + Math.random().toString(36).slice(2)
-}
+type AuthResult = { success: boolean; error?: string }
 
 type AuthContextType = {
   user: User | null
   appData: AppData | null
   isReady: boolean
   isAdmin: boolean
-  login: (email: string, password: string) => { success: boolean; error?: string }
-  signup: (data: { email: string; password: string; name: string; height: number; weight: number; age: number }) => { success: boolean; error?: string }
+  login: (email: string, password: string) => AuthResult | Promise<AuthResult>
+  signup: (data: { email: string; password: string; name: string; height: number; weight: number; age: number }) => AuthResult | Promise<AuthResult>
   logout: () => void
   deleteAccount: () => void
   updateUser: (partial: Partial<User>) => void
@@ -55,13 +65,6 @@ const defaultAppData: AppData = {
   highestStreak: 0,
 }
 
-const defaultNotifications: NotificationPrefs = {
-  workouts: true,
-  mindfulness: true,
-  nutrition: true,
-  reminders: true,
-}
-
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
@@ -69,26 +72,25 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [appData, setAppDataState] = useState<AppData | null>(null)
   const [isReady, setIsReady] = useState(false)
 
-  const loadSession = useCallback(() => {
-    const userId = getCurrentUserId()
-    if (!userId) {
+  const loadSession = useCallback(async () => {
+    const token = getToken()
+    if (!token) {
       setUser(null)
       setAppDataState(null)
       setIsReady(true)
       return
     }
-    const users = getUsers()
-    const u = users.find((x) => x.id === userId)
-    if (!u) {
-      setCurrentUserId(null)
+    const { user: me } = await apiGetMe()
+    if (!me) {
+      clearToken()
       setUser(null)
       setAppDataState(null)
       setIsReady(true)
       return
     }
-    setUser(u)
-    const data = getAppData(userId)
-    setAppDataState(data)
+    setUser(me)
+    const { data } = await apiGetAppData()
+    setAppDataState(data ?? defaultAppData)
     setIsReady(true)
   }, [])
 
@@ -99,10 +101,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const updateAppData = useCallback(
     (updater: (prev: AppData) => AppData) => {
       if (!user) return
-      const uid = user.id
       setAppDataState((prev) => {
         const next = updater(prev ?? defaultAppData)
-        saveAppData(uid, next)
+        apiPutAppData(next).then((r) => {
+          if (r.data) setAppDataState(r.data)
+        })
         return next
       })
     },
@@ -115,78 +118,47 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     updateAppData((prev) => ({ ...prev, weightHistory: [{ date: getToday(), weight: user.weight }] }))
   }, [user?.id, user?.weight, appData, updateAppData])
 
-  const login = useCallback(
-    (email: string, password: string) => {
-      const users = getUsers()
-      const u = users.find((x) => x.email.toLowerCase() === email.toLowerCase())
-      if (!u || u.password !== password) {
-        return { success: false, error: 'Invalid email or password' }
-      }
-      if (u.banned === true) {
-        return { success: false, error: 'This account has been suspended.' }
-      }
-      setCurrentUserId(u.id)
-      setUser(u)
-      setAppDataState(getAppData(u.id))
-      return { success: true }
-    },
-    []
-  )
+  const login = useCallback(async (email: string, password: string): Promise<AuthResult> => {
+    const result = await apiLogin(email, password)
+    if (!result.success) return result
+    if (result.token) setToken(result.token)
+    if (result.user) setUser(result.user)
+    const { data } = await apiGetAppData()
+    setAppDataState(data ?? defaultAppData)
+    return { success: true }
+  }, [])
 
   const signup = useCallback(
-    (data: { email: string; password: string; name: string; height: number; weight: number; age: number }) => {
-      const users = getUsers()
-      if (users.some((x) => x.email.toLowerCase() === data.email.toLowerCase())) {
-        return { success: false, error: 'An account with this email already exists' }
-      }
-      const isFirstUser = users.length === 0
-      const newUser: User = {
-        id: generateId(),
-        email: data.email,
-        password: data.password,
-        name: data.name,
-        height: data.height,
-        weight: data.weight,
-        age: data.age,
-        dailyCalorieGoal: 2200,
-        theme: 'light',
-        notifications: defaultNotifications,
-        createdAt: new Date().toISOString(),
-        role: isFirstUser ? 'admin' : 'user',
-        banned: false,
-      }
-      const updated = [...users, newUser]
-      saveUsers(updated)
-      setCurrentUserId(newUser.id)
-      setUser(newUser)
-      setAppDataState(getAppData(newUser.id))
+    async (data: { email: string; password: string; name: string; height: number; weight: number; age: number }): Promise<AuthResult> => {
+      const result = await apiSignup(data)
+      if (!result.success) return result
+      if (result.token) setToken(result.token)
+      if (result.user) setUser(result.user)
+      const { data: app } = await apiGetAppData()
+      setAppDataState(app ?? defaultAppData)
       return { success: true }
     },
     []
   )
 
   const logout = useCallback(() => {
-    setCurrentUserId(null)
+    clearToken()
     setUser(null)
     setAppDataState(null)
   }, [])
 
-  const deleteAccount = useCallback(() => {
-    if (user) {
-      deleteUser(user.id)
-      setUser(null)
-      setAppDataState(null)
-    }
+  const deleteAccount = useCallback(async () => {
+    if (!user) return
+    await apiDeleteAccount()
+    clearToken()
+    setUser(null)
+    setAppDataState(null)
   }, [user])
 
   const updateUser = useCallback(
     (partial: Partial<User>) => {
-      setUser((prev) => {
-        if (!prev) return null
-        const next = { ...prev, ...partial }
-        const users = getUsers().map((u) => (u.id === next.id ? next : u))
-        saveUsers(users)
-        return next
+      apiPatchUser(partial).then((r) => {
+        if (r.user) setUser(r.user)
       })
       if (partial.weight != null && typeof partial.weight === 'number') {
         updateAppData((prev) => {

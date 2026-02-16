@@ -18,7 +18,7 @@
 
 ## Огляд проєкту
 
-FitMind — це **single-page application (SPA)** без бекенду: усі дані зберігаються в **localStorage** браузера. Користувачі реєструються (email + пароль), отримують особистий дашборд з метриками (BMI, вага, стрік, ранг, XP/рівень), бібліотеку тренувань із таймером та прогресом, розділ ментального здоров’я (медитації, дихання, сон), журнал харчування та профіль. **Перший зареєстрований користувач** автоматично отримує роль адміна і доступ до адмін-панелі (CRUD вправ Fitness і Mental Health, список користувачів з пошуком/баном/ролями, діаграми демографії).
+FitMind — це **single-page application (SPA)**. Усі дані (користувачі, прогрес, вправи, сесії) зберігаються на **бекенді (Node.js + Express)** у JSON-файлах, авторизація через JWT. Додаток завжди працює з API: у розробці фронт звертається до http://localhost:3001, на хостингу — до того ж хосту (один сервер віддає і API, і статику). Користувачі реєструються (email + пароль), отримують особистий дашборд з метриками (BMI, вага, стрік, ранг, XP/рівень), бібліотеку тренувань із таймером та прогресом, розділ ментального здоров’я (медитації, дихання, сон), журнал харчування та профіль. **Перший зареєстрований користувач** автоматично отримує роль адміна і доступ до адмін-панелі (CRUD вправ Fitness і Mental Health, список користувачів з пошуком/баном/ролями, діаграми демографії).
 
 ---
 
@@ -94,10 +94,18 @@ FitMind/
 │
 ├── lib/
 │   ├── types.ts            # Інтерфейси User, AppData, FoodEntry, UserRole; константи (RANK_NAMES, XP_PER_LEVEL, WORKOUTS_FOR_FULL тощо)
-│   ├── storage.ts          # localStorage: getUsers, saveUsers, getCurrentUserId, setCurrentUserId, getAppData, saveAppData, getToday, recomputeStreakAndRank, setUserRole, setUserBanned, deleteUser
+│   ├── storage.ts          # getToday, recomputeStreakAndRank; допоміжні функції для локальної логіки (без зберігання користувачів/appData — вони на бекенді)
+│   ├── api.ts              # Клієнт бекенду: getBaseUrl (dev: localhost:3001, prod: ''), getToken, apiLogin, apiSignup, apiGetAppData, apiPutAppData, apiGetWorkouts, apiGetSessions, admin-ендпоінти, apiGetTopPercent
 │   ├── adminStorage.ts     # fitmind_workouts / fitmind_mindfulness_sessions: getStoredWorkouts, saveStoredWorkouts, getWorkouts (з валідацією та fallback на дефолт), getStoredSessions, saveStoredSessions, getSessions
 │   ├── workouts.ts         # Категорії, тип WorkoutItem, масив workouts (дефолтна бібліотека вправ з videoUrl?)
 │   └── mentalHealth.ts     # Типи MindfulnessSession, MindfulnessSessionStored, MindfulnessIconName, sessionsStoredDefault, storedSessionToUI, мапа іконок
+│
+├── backend/                # Бекенд (Node.js, ESM)
+│   ├── package.json        # express, cors, jsonwebtoken, sql.js
+│   ├── server.js           # Express: CORS, JWT, маршрути /api/auth/*, /api/user, /api/app-data, /api/workouts, /api/sessions, /api/admin/*, /api/top-percent; initDb() перед listen
+│   ├── db.js               # SQLite (sql.js): initDb(), міграції (users, app_data, store), збереження у data/fitmind.db, dbGetUsers, dbSaveUsers, dbGetAppData, dbSaveAppData, dbGetStore, dbSetStore
+│   ├── store.js            # Логіка поверх БД: getToday, recomputeStreakAndRank, getUsers, saveUsers, getAppData, saveAppData, getWorkouts, getSessions тощо
+│   └── data/               # Папка для fitmind.db (SQLite); створюється при першому запуску
 │
 ├── pages/
 │   ├── LoginPage.tsx       # Форма логіну (email, password), PublicRoute
@@ -167,27 +175,25 @@ FitMind/
 
 ### Адмін-панель
 
-- **Fitness** — список вправ з getStoredWorkouts/getWorkouts; додавання/редагування/видалення; форма з усіма полями WorkoutItem + Video URL. Збереження в **fitmind_workouts**.
-- **Mental Health** — список сесій; CRUD; форма з полями MindfulnessSessionStored + Audio URL та вибір іконки. Збереження в **fitmind_mindfulness_sessions**.
-- **Users** — getUsers(), пошук по імені/email/id; таблиця з role та banned; кнопки зміни ролі та бану через setUserRole/setUserBanned.
-- **Demographics** — агрегація по всіх користувачах (getAppData): підрахунок виконань тренувань (workoutsByDay) і завершених сесій (mindfulnessProgress.percent >= 100); два BarChart (Recharts).
+- **Fitness** — список вправ з API; додавання/редагування/видалення; форма з усіма полями WorkoutItem + Video URL. Збереження через PUT /api/workouts.
+- **Mental Health** — список сесій з API; CRUD; форма з полями MindfulnessSessionStored + Audio URL та вибір іконки. Збереження через PUT /api/sessions.
+- **Users** — список з GET /api/admin/users; пошук по імені/email/id; таблиця з role та banned; кнопки зміни ролі та бану через PATCH /api/admin/users/:id.
+- **Demographics** — GET /api/admin/demographics: підрахунок виконань тренувань і завершених сесій; два BarChart (Recharts).
 
 ---
 
 ## Зберігання даних
 
-Усі дані зберігаються в **localStorage** браузера.
+Усі дані зберігаються на **бекенді** в базі даних **SQLite** (файл `backend/data/fitmind.db`). Схема:
 
-| Ключ | Опис |
-|------|------|
-| `fitmind_users` | Масив користувачів (User[]): id, email, password, name, height, weight, age, dailyCalorieGoal, theme, notifications, createdAt, role?, banned?. |
-| `fitmind_current_user_id` | ID поточного залогіненого користувача. |
-| `fitmind_data_<userId>` | Об’єкт AppData для користувача: streak, rankPoints, workoutDays, workoutsByDay, exerciseProgress, mindfulnessProgress, щоденні лічильники, xp, level, історії тощо. |
-| `fitmind_workouts` | Масив вправ (WorkoutItem[]), який редагує адмін; якщо порожній або невалідний — у додатку використовується дефолт з lib/workouts. |
-| `fitmind_mindfulness_sessions` | Масив сесій у форматі MindfulnessSessionStored (з iconName, без React-компонентів); якщо порожній — використовується sessionsStoredDefault. |
-| `theme` | 'light' або 'dark' для ThemeContext. |
+| Таблиця | Опис |
+|---------|------|
+| **users** | Користувачі: id, email, password, name, height, weight, age, daily_calorie_goal, theme, notifications (JSON), created_at, role, banned. Паролі зберігаються у відкритому вигляді (для продакшену варто хешування). |
+| **app_data** | Один рядок на користувача (user_id, data JSON): streak, rankPoints, workoutDays, workoutsByDay, exerciseProgress, mindfulnessProgress, щоденні лічильники, xp, level, історії тощо. При видаленні користувача запис видаляється (CASCADE). |
+| **store** | Ключ-значення (key, value): ключі `workouts` та `sessions` — JSON-масиви вправ і сесій Mindfulness для адмінки. |
 
-Формат дат: **YYYY-MM-DD** (функція **getToday()** у lib/storage).
+БД створюється та оновлюється при першому запуску бекенду (модуль `backend/db.js`, міграції в коді). У браузері в localStorage зберігаються лише **JWT** (`fitmind_token`) та **тема** (`theme`). Формат дат: **YYYY-MM-DD** (функція **getToday()** у lib/storage і на бекенді).
+
 
 ---
 
@@ -206,8 +212,44 @@ FitMind/
 
 ## Запуск та збірка
 
-- **Розробка:** `npm run dev` — запуск Vite dev-сервера (зазвичай http://localhost:5173).
-- **Збірка:** `npm run build` — спочатку `tsc -b`, потім `vite build`; результат у папці `dist/`.
-- **Перегляд збірки:** `npm run preview` — локальний перегляд зібраного додатку.
+### Локальна розробка
 
-Після клонування проєкту виконайте **npm install** для встановлення залежностей.
+1. **Бекенд** (обов’язково спочатку):
+   ```bash
+   cd backend
+   npm install
+   npm run dev
+   ```
+   Сервер: http://localhost:3001
+
+2. **Фронтенд** (у корені проєкту):
+   ```bash
+   npm install
+   npm run dev
+   ```
+   Додаток: http://localhost:5173 (запити до API йдуть на http://localhost:3001).
+
+Після клонування проєкту виконайте **npm install** у корені та **npm install** у `backend/`. Без запущеного бекенду логін і дані працювати не будуть.
+
+### Хостинг (один сервер)
+
+Додаток можна захостити так, щоб один процес віддавав і API, і фронт:
+
+1. У **корені** проєкту зібрати фронт:
+   ```bash
+   npm run build
+   ```
+   Результат у папці `dist/`.
+
+2. Запустити тільки бекенд:
+   ```bash
+   cd backend
+   npm install
+   npm start
+   ```
+   Бекенд віддає статику з `../dist/` і обслуговує API. Відкривай сайт за адресою **http://localhost:3001** (або ваш домен/порт). Для продакшену задайте змінну середовища **JWT_SECRET** та при потребі **PORT**.
+
+Якщо API і фронт на різних доменах, при збірці задайте **VITE_API_URL** (наприклад `https://api.example.com`), щоб запити йшли на правильний хост.
+
+- **Збірка:** `npm run build` — `tsc -b` та `vite build`; результат у `dist/`.
+- **Перегляд збірки локально:** `npm run preview` — тільки фронт; для повної перевірки краще зібрати і запустити бекенд, як вище.

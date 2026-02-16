@@ -1,0 +1,30 @@
+{
+  "streak": 0,
+  "lastActivityDate": null,
+  "rankPoints": 0,
+  "workoutDays": [],
+  "sleepLog": [],
+  "foodLog": [],
+  "exerciseProgress": {},
+  "mindfulnessProgress": {},
+  "dailyProgressResetDate": "2026-02-16",
+  "workoutsCompletedToday": 0,
+  "mindfulnessCompletedToday": 0,
+  "nutritionPercentToday": 0,
+  "xp": 0,
+  "level": 1,
+  "workoutsByDay": {},
+  "weightHistory": [
+    {
+      "date": "2026-02-16",
+      "weight": 110
+    },
+    {
+      "date": "2026-02-16",
+      "weight": 100
+    }
+  ],
+  "streakHistory": [],
+  "rankHistory": [],
+  "highestStreak": 0
+}

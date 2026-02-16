@@ -4,6 +4,7 @@ import { Play, Clock, Flame, BarChart, ChevronLeft, Check, Timer } from 'lucide-
 import { useAuth } from '../contexts/AuthContext'
 import { getToday } from '../lib/storage'
 import { getWorkouts } from '../lib/adminStorage'
+import { apiGetWorkouts } from '../lib/api'
 import { categories, type WorkoutItem } from '../lib/workouts'
 
 function formatDuration(seconds: number): string {
@@ -21,7 +22,12 @@ export function FitnessPage() {
   const [positionSeconds, setPositionSeconds] = useState(0)
   const [completedThisSession, setCompletedThisSession] = useState(false)
   const [showRepeatConfirm, setShowRepeatConfirm] = useState(false)
+  const [workoutsFromApi, setWorkoutsFromApi] = useState<WorkoutItem[] | null>(null)
   const hasAutoFinished = useRef(false)
+
+  useEffect(() => {
+    apiGetWorkouts().then((r) => setWorkoutsFromApi(r.list ?? []))
+  }, [])
 
   const progress = selectedWorkout
     ? appData?.exerciseProgress?.[selectedWorkout.id] ?? { percent: 0, positionSeconds: 0, durationSeconds: selectedWorkout.durationMinutes * 60 }
@@ -151,7 +157,7 @@ export function FitnessPage() {
   const getProgressForWorkout = (w: WorkoutItem) => appData?.exerciseProgress?.[w.id]?.percent ?? 0
   const getPositionForWorkout = (w: WorkoutItem) => appData?.exerciseProgress?.[w.id]?.positionSeconds ?? 0
 
-  const workouts = getWorkouts()
+  const workouts = (workoutsFromApi?.length ? workoutsFromApi : getWorkouts()) ?? []
   const filteredWorkouts = activeCategory === 'All' ? workouts : workouts.filter((w) => w.category === activeCategory)
 
   return (

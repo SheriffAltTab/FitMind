@@ -85,10 +85,10 @@ export function SignUpPage() {
   const handleGoalSelect = (goalId: string) => {
     setSelectedGoal(goalId)
   }
-  const handleFinalSubmit = () => {
+  const handleFinalSubmit = async () => {
     setSignUpError('')
     setIsLoading(true)
-    const result = signup({
+    const result = await signup({
       email: formData.email.trim(),
       password: formData.password,
       name: formData.name.trim(),

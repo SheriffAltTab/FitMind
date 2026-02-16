@@ -13,6 +13,7 @@ import { Play, ChevronLeft, Pause, CheckCircle, Check } from 'lucide-react'
 import { useAuth } from '../contexts/AuthContext'
 import { getToday } from '../lib/storage'
 import { getSessions } from '../lib/adminStorage'
+import { apiGetSessions } from '../lib/api'
 import type { MindfulnessSession } from '../lib/mentalHealth'
 import { MINDFULNESS_FOR_FULL } from '../lib/types'
 
@@ -35,6 +36,11 @@ export function MentalHealthPage() {
   const [isPlaying, setIsPlaying] = useState(false)
   const [positionSeconds, setPositionSeconds] = useState(0)
   const [sleepHoursToday, setSleepHoursToday] = useState('')
+  const [sessionsFromApi, setSessionsFromApi] = useState<MindfulnessSession[] | null>(null)
+
+  useEffect(() => {
+    apiGetSessions().then((r) => setSessionsFromApi(r.list ?? []))
+  }, [])
 
   const today = getToday()
   const last7 = getLast7Days()
@@ -130,7 +136,7 @@ export function MentalHealthPage() {
   const getProgressForSession = (s: MindfulnessSession) => appData?.mindfulnessProgress?.[s.id]?.percent ?? 0
   const getPositionForSession = (s: MindfulnessSession) => appData?.mindfulnessProgress?.[s.id]?.positionSeconds ?? 0
 
-  const sessions = getSessions()
+  const sessions = (sessionsFromApi?.length ? sessionsFromApi : getSessions()) ?? []
 
   return (
     <div className="space-y-8 pb-8">

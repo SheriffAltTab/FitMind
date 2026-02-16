@@ -12,11 +12,11 @@ export function LoginPage() {
   const [showPassword, setShowPassword] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState('')
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setError('')
     setIsLoading(true)
-    const result = login(email.trim(), password)
+    const result = await login(email.trim(), password)
     setIsLoading(false)
     if (result.success) navigate('/dashboard')
     else setError(result.error ?? 'Login failed')

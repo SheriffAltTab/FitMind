@@ -15,15 +15,16 @@ import {
   Ban,
   CheckCircle,
 } from 'lucide-react'
-import { getUsers, getAppData, setUserRole, setUserBanned } from '../lib/storage'
+import { getWorkouts } from '../lib/adminStorage'
 import {
-  getStoredWorkouts,
-  saveStoredWorkouts,
-  getWorkouts,
-  getStoredSessions,
-  saveStoredSessions,
-  getSessions,
-} from '../lib/adminStorage'
+  apiGetWorkouts,
+  apiPutWorkouts,
+  apiGetSessionsStored,
+  apiPutSessions,
+  apiGetAdminUsers,
+  apiPatchAdminUser,
+  apiGetAdminDemographics,
+} from '../lib/api'
 import { categories, type WorkoutItem } from '../lib/workouts'
 import type { MindfulnessSessionStored, MindfulnessIconName } from '../lib/mentalHealth'
 import { sessionsStoredDefault } from '../lib/mentalHealth'
@@ -61,19 +62,23 @@ export function AdminPage() {
   const [showSessionForm, setShowSessionForm] = useState(false)
 
   useEffect(() => {
-    const stored = getStoredWorkouts()
-    if (stored.length > 0) setWorkoutsList(stored)
-    else setWorkoutsList(getWorkouts())
+    apiGetWorkouts().then((r) => {
+      if (r.list && r.list.length > 0) setWorkoutsList(r.list)
+      else setWorkoutsList(getWorkouts())
+    })
   }, [activeTab])
 
   useEffect(() => {
-    const stored = getStoredSessions()
-    if (stored.length > 0) setSessionsList(stored)
-    else setSessionsList(sessionsStoredDefault)
+    apiGetSessionsStored().then((r) => {
+      if (r.list && r.list.length > 0) setSessionsList(r.list)
+      else setSessionsList(sessionsStoredDefault)
+    })
   }, [activeTab])
 
   useEffect(() => {
-    setUsersList(getUsers())
+    apiGetAdminUsers().then((r) => {
+      if (r.users) setUsersList(r.users)
+    })
   }, [activeTab])
 
   const filteredUsers = useMemo(() => {
@@ -87,61 +92,47 @@ export function AdminPage() {
     )
   }, [usersList, userSearch])
 
+  const [demographicsData, setDemographicsData] = useState<{ workoutChart: { name: string; count: number }[]; sessionChart: { name: string; count: number }[] }>({
+    workoutChart: [],
+    sessionChart: [],
+  })
+
+  useEffect(() => {
+    if (activeTab !== 'demographics') return
+    apiGetAdminDemographics().then((r) => {
+      if (r.workoutChart != null && r.sessionChart != null)
+        setDemographicsData({ workoutChart: r.workoutChart, sessionChart: r.sessionChart })
+    })
+  }, [activeTab])
+
   const handleSaveWorkouts = (list: WorkoutItem[]) => {
-    saveStoredWorkouts(list)
-    setWorkoutsList(list)
-    setEditingWorkout(null)
-    setShowWorkoutForm(false)
+    apiPutWorkouts(list).then((r) => {
+      if (r.list) setWorkoutsList(r.list)
+      setEditingWorkout(null)
+      setShowWorkoutForm(false)
+    })
   }
 
   const handleSaveSessions = (list: MindfulnessSessionStored[]) => {
-    saveStoredSessions(list)
-    setSessionsList(list)
-    setEditingSession(null)
-    setShowSessionForm(false)
+    apiPutSessions(list).then((r) => {
+      if (r.list) setSessionsList(r.list)
+      setEditingSession(null)
+      setShowSessionForm(false)
+    })
   }
 
   const handleUserRoleToggle = (userId: string, currentRole?: string) => {
     const next = currentRole === 'admin' ? 'user' : 'admin'
-    setUserRole(userId, next)
-    setUsersList(getUsers())
+    apiPatchAdminUser(userId, { role: next }).then((r) => {
+      if (r.user) setUsersList((prev) => prev.map((u) => (u.id === r.user!.id ? r.user! : u)))
+    })
   }
 
   const handleUserBannedToggle = (userId: string, currentBanned?: boolean) => {
-    setUserBanned(userId, !currentBanned)
-    setUsersList(getUsers())
+    apiPatchAdminUser(userId, { banned: !currentBanned }).then((r) => {
+      if (r.user) setUsersList((prev) => prev.map((u) => (u.id === r.user!.id ? r.user! : u)))
+    })
   }
-
-  const demographicsData = useMemo(() => {
-    const users = getUsers()
-    const workoutCounts: Record<string, number> = {}
-    const sessionCounts: Record<string, number> = {}
-    for (const u of users) {
-      const data = getAppData(u.id)
-      for (const day of Object.keys(data.workoutsByDay ?? {})) {
-        for (const title of data.workoutsByDay![day] ?? []) {
-          workoutCounts[title] = (workoutCounts[title] ?? 0) + 1
-        }
-      }
-      for (const [sessionId, prog] of Object.entries(data.mindfulnessProgress ?? {})) {
-        if ((prog?.percent ?? 0) >= 100) {
-          sessionCounts[sessionId] = (sessionCounts[sessionId] ?? 0) + 1
-        }
-      }
-    }
-    const workoutChart = Object.entries(workoutCounts)
-      .map(([name, count]) => ({ name, count }))
-      .sort((a, b) => b.count - a.count)
-      .slice(0, 15)
-    const sessions = getSessions()
-    const sessionIdToTitle: Record<string, string> = {}
-    for (const s of sessions) sessionIdToTitle[s.id] = s.title
-    const sessionChart = Object.entries(sessionCounts)
-      .map(([id, count]) => ({ name: sessionIdToTitle[id] || id, count }))
-      .sort((a, b) => b.count - a.count)
-      .slice(0, 15)
-    return { workoutChart, sessionChart }
-  }, [activeTab])
 
   return (
     <div className="space-y-8 pb-8">

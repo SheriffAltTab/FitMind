@@ -1,0 +1,42 @@
+[
+  {
+    "id": "mlow3ee7s38d6tbrhi9",
+    "email": "admin@gmail.com",
+    "password": "admin123",
+    "name": "admin",
+    "height": 170,
+    "weight": 60,
+    "age": 25,
+    "dailyCalorieGoal": 2200,
+    "theme": "light",
+    "notifications": {
+      "workouts": true,
+      "mindfulness": true,
+      "nutrition": true,
+      "reminders": true
+    },
+    "createdAt": "2026-02-16T08:05:33.727Z",
+    "role": "admin",
+    "banned": false
+  },
+  {
+    "id": "mlowp8kukmnob3q8suh",
+    "email": "2@gmail.com",
+    "password": "222222",
+    "name": "2",
+    "height": 210,
+    "weight": 100,
+    "age": 40,
+    "dailyCalorieGoal": 2200,
+    "theme": "light",
+    "notifications": {
+      "workouts": true,
+      "mindfulness": true,
+      "nutrition": true,
+      "reminders": true
+    },
+    "createdAt": "2026-02-16T08:22:32.622Z",
+    "role": "user",
+    "banned": false
+  }
+]

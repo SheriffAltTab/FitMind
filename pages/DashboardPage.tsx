@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useId } from 'react'
+import React, { useState, useMemo, useId, useEffect } from 'react'
 import { motion } from 'framer-motion'
 import { AreaChart, Area, XAxis, YAxis, ResponsiveContainer, Tooltip } from 'recharts'
 import {
@@ -14,7 +14,8 @@ import {
   Info,
 } from 'lucide-react'
 import { useAuth } from '../contexts/AuthContext'
-import { getToday, getTopPercentFromAllUsers } from '../lib/storage'
+import { getToday } from '../lib/storage'
+import { apiGetTopPercent } from '../lib/api'
 import { WORKOUTS_FOR_FULL, MINDFULNESS_FOR_FULL } from '../lib/types'
 
 function getWeekDays(): string[] {
@@ -90,7 +91,11 @@ const StatCard = ({
     if (onEdit) onEdit(editValue)
     setIsEditing(false)
   }
-  const data = sparklineData ?? [{ value: 0 }, { value: 10 }, { value: 0 }]
+  const rawData = sparklineData ?? [{ value: 0 }, { value: 10 }, { value: 0 }]
+  const data =
+    rawData.length === 1
+      ? [{ ...rawData[0], date: rawData[0].date ?? '' }, { ...rawData[0] }]
+      : rawData
   const dataMax = Math.max(...data.map((d) => d.value), 1)
   const yDomain: [number, number] = [0, Math.max(50, dataMax + 15)]
   const chartKey = `spark-${data.map((d) => d.value).join('-')}`
@@ -308,7 +313,11 @@ export function DashboardPage() {
   const rankName = getRankName(rankPoints)
   const streak = Math.max(1, appData?.streak ?? 0)
   const highestStreak = Math.max(1, appData?.highestStreak ?? 0)
-  const topPercent = useMemo(() => getTopPercentFromAllUsers(rankPoints), [rankPoints])
+  const [topPercentState, setTopPercentState] = useState<number>(0)
+  useEffect(() => {
+    apiGetTopPercent().then((r) => setTopPercentState(r.percent ?? 0))
+  }, [rankPoints])
+  const topPercent = topPercentState
 
   const weightHistory = appData?.weightHistory ?? []
 
@@ -332,7 +341,12 @@ export function DashboardPage() {
 
   const sparklineFromWeight = useMemo((): SparklinePoint[] => {
     const history = weightHistory.slice(-7)
-    if (history.length === 0) return [{ date: today, value: weight }]
+    if (history.length === 0) {
+      const d = new Date(today + 'T12:00:00')
+      d.setDate(d.getDate() - 6)
+      const past = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+      return [{ date: past, value: weight }, { date: today, value: weight }]
+    }
     return history.map((h) => ({ date: h.date, value: h.weight }))
   }, [weightHistory, weight, today])
 
@@ -340,19 +354,34 @@ export function DashboardPage() {
     const history = weightHistory.slice(-7)
     const heightSq = heightM * heightM
     const currentBmi = weight / heightSq
-    if (history.length === 0) return [{ date: today, value: currentBmi }]
+    if (history.length === 0) {
+      const d = new Date(today + 'T12:00:00')
+      d.setDate(d.getDate() - 6)
+      const past = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+      return [{ date: past, value: currentBmi }, { date: today, value: currentBmi }]
+    }
     return history.map((h) => ({ date: h.date, value: h.weight / heightSq }))
   }, [weightHistory, weight, heightM, today])
 
   const sparklineFromStreak = useMemo((): SparklinePoint[] => {
     const history = (appData?.streakHistory ?? []).slice(-7)
-    if (history.length === 0) return [{ date: today, value: streak }]
+    if (history.length === 0) {
+      const d = new Date(today + 'T12:00:00')
+      d.setDate(d.getDate() - 6)
+      const past = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+      return [{ date: past, value: streak }, { date: today, value: streak }]
+    }
     return history.map((h) => ({ date: h.date, value: h.value }))
   }, [appData?.streakHistory, streak, today])
 
   const sparklineFromRank = useMemo((): SparklinePoint[] => {
     const history = (appData?.rankHistory ?? []).slice(-7)
-    if (history.length === 0) return [{ date: today, value: rankPoints }]
+    if (history.length === 0) {
+      const d = new Date(today + 'T12:00:00')
+      d.setDate(d.getDate() - 6)
+      const past = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+      return [{ date: past, value: rankPoints }, { date: today, value: rankPoints }]
+    }
     return history.map((h) => ({ date: h.date, value: h.value }))
   }, [appData?.rankHistory, rankPoints, today])
 
