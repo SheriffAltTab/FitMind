@@ -3,7 +3,12 @@
   "lastActivityDate": null,
   "rankPoints": 0,
   "workoutDays": [],
-  "sleepLog": [],
+  "sleepLog": [
+    {
+      "date": "2026-02-16",
+      "hours": 8
+    }
+  ],
   "foodLog": [],
   "exerciseProgress": {},
   "mindfulnessProgress": {},
